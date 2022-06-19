@@ -1,35 +1,36 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
 REC_TYPE="A"
 TTL="1"
 AUTH_TYPE="TOKEN"
+PROXIED="true"
 
 crud_dns_rec_test () {
   case ${COMMAND} in 
   CREATE)
-    echo "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" 
+    echo curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" 
     echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json" 
-    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXY_STATUS}}"
+    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
      ;;
   READ)
-    echo "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" 
+    echo curl -X GET  "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" 
     echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json"
     ;;
   UPDATE)
-    echo "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
+    echo curl -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
     echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json" 
-    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXY_STATUS}}"
+    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
     ;;
   DELETE)
-    echo "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
+    echo curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
     echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}"  
     echo -H "Content-Type: application/json"
@@ -48,7 +49,7 @@ crud_dns_rec() {
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
-     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXY_STATUS}}"
+     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
      ;;
   READ)
     curl -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
@@ -61,7 +62,7 @@ crud_dns_rec() {
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
-     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXY_STATUS}}"
+     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
     ;;
   DELETE)
     curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
@@ -79,10 +80,10 @@ crud_dns_rec() {
 set_auth_body() {
   case "${AUTH_TYPE}" in
     KEY)
-      AUTH="\"X-Auth-Key: ${SECRET}\""
+      AUTH="X-Auth-Key: ${SECRET}"
       ;;
     TOKEN)
-      AUTH="\"Authorization: Bearer ${SECRET}\""
+      AUTH="Authorization: Bearer ${SECRET}"
       ;;
     *)
       echo "Failure"
@@ -92,53 +93,77 @@ set_auth_body() {
 }
 
 check_opts() {
-  err="Error: "
-  help="
-    Specify:
+  err="    Error: following argument(s) not passed or invalid
   "
   if [ "${COMMAND}" = "" ]
   then
-    err="${err} operation method"
-    help="${help}
-        method with -c,-r,-u,-d : create,read,update,delete record
+    err="${err}
+        operation method, specify with -c,-r,-u,-d
     "
-  elif [ "${REC_NAME}" = "" ]
+  fi
+  if [ "${REC_NAME}" = "" ]
   then
-    err="${err},record name"
-    help="${help}
-        record name with -n option
+    err="${err}
+        record name, specify with -n
     "
-  elif [ "${REC_CONT}" = "" ]
+  fi
+  if [ "${COMMAND}" != "READ" ] && [ "${REC_CONT}" = "" ]
   then
-    err="${err},record content"
-    help="${help}
-        record content with -b option
+    err="${err}
+        record content, specify with -b
     "
-  elif [ "${CF_ZONE}" = "" ]
+  fi
+  if [ "${CF_ZONE}" = "" ]
   then
-    err="${err},cloudflare zone"
-    help="${help}
-        cloudflare zone with -z option
+    err="${err}
+        cloudflare zone, specify with -z
     "
-  elif [ "${SECRET}" = "" ]
+  fi
+  if [ "${SECRET}" = "" ]
   then
-    err="${err}, api secret"
-    help="${help}
-        api secret with -s option
+    err="${err}
+        api secret, specify with -s
     "
-  elif [ "${AUTH_TYPE}" = "KEY" ] && [ "${EMAIL}" = "" ]
+  fi
+  if [ "${AUTH_TYPE}" = "KEY" ] && [ "${EMAIL}" = "" ]
   then
-    err="${err}, email"
-    help="${help}
-        with api key email must be passed, use -m option
+    err="${err}
+        email, specify with -m, required with -k option
+    "
+  fi
+  if [ "${PROXIED}" != "true" ] && [ "${PROXIED}" != "false" ]
+  then
+    err="${err}
+        proxy status can be only true or false, passed value is \"${PROXIED}\"
     "
   fi
 
-  if [ "${err}" != "Error: " ]
+  local valid
+  local types=(A AAAA CNAME HTTPS TXT SRV LOC MX NS CERT DNSKEY DS NAPTR SMIMEA SSHFP SVCB TLSA URI)
+  for i in "${types[@]}"
+  do
+    if [ "${REC_TYPE}" =  "$i" ]
+    then
+      valid=true
+      break
+    fi
+  done
+  if ! [ "${valid}" == "true" ]
   then
-    echo "${err}"
-    echo "${help}
-        to see all options run: crud_cf_dns.sh -h
+    err="${err}
+        record type is invalid, valid types are
+        \"${types[*]}\"
+    "
+  fi
+
+  
+
+  if [ "${err}" != "    Error: following argument(s) not passed or invalid
+  "  ]
+  then
+    echo ""
+    echo "${err}
+    To see all options run: crud_cf_dns.sh -h
     "
     exit 2
   fi
@@ -159,6 +184,8 @@ echo "
     -l          : ttl of the record,
                   must be between 60 and 86400,
                   or 1 for automatic (default value)
+    -p          : set proxy status true or false
+                  default value is true
     -z          : DNS zone ID
     -k          : set authorization type to api key
                   default is token
@@ -169,7 +196,22 @@ echo "
 "
 }
 
-while getopts "crudth:n:b:l:z:ks:m:" option; do
+case "$1" in
+  test)
+    shift
+    run=crud_dns_rec_test
+    ;;
+  run)
+    shift
+    run=crud_dns_rec
+    ;;
+  *)
+    echo fail
+    exit 1
+    ;;
+esac
+
+while getopts "crudht:n:b:l:z:ks:m:p:" option; do
     case "${option}" in
         c)
           COMMAND="CREATE"
@@ -195,6 +237,9 @@ while getopts "crudth:n:b:l:z:ks:m:" option; do
         l)
           TTL=${OPTARG}
           ;;
+        p)
+          PROXIED=${OPTARG}
+          ;;
         z)
           CF_ZONE=${OPTARG}
           ;;
@@ -212,16 +257,23 @@ while getopts "crudth:n:b:l:z:ks:m:" option; do
           exit 0
           ;;
         *)
-          echo "Invalid option passed: ${option}"
           usage
           exit 1
           ;;
     esac
 done
-shift $((OPTIND-1))
+shift "$(expr ${OPTIND} - 1)"
 
 check_opts
 
 set_auth_body
 
-crud_dns_rec_test
+if [ "${COMMAND}" != "CREATE" ]
+then
+  REC_ID=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
+     -H "X-Auth-Email: ${EMAIL}" \
+     -H "${AUTH}" \
+     -H "Content-Type: application/json" | jq -r .result[].id)
+fi
+
+${run}

@@ -2,9 +2,11 @@ FROM curlimages/curl
 
 USER root
 
-RUN apk add jq
+RUN apk add jq bash
 
-COPY manage_cf_dns.sh /bin/
+COPY crud_cf_dns.sh /bin/
 
-ENTRYPOINT ["/bin/crud_cf_dns.sh"]
+COPY cf_rec.sh /bin/
+
+ENTRYPOINT ["/bin/cf_rec.sh"]
 
