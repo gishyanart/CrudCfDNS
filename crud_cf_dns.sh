@@ -45,27 +45,27 @@ crud_dns_rec_test () {
 crud_dns_rec() {
   case ${COMMAND} in 
   CREATE)
-    curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" \
+    curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
      --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
      ;;
   READ)
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
+    curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json"
     ;;
   UPDATE)
-    curl -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
+    curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
      --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
     ;;
   DELETE)
-    curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
+    curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}"  \
      -H "Content-Type: application/json"
@@ -107,7 +107,7 @@ check_opts() {
         record name, specify with -n
     "
   fi
-  if [ "${COMMAND}" != "READ" ] && [ "${REC_CONT}" = "" ]
+  if [ "${COMMAND}" != "READ" ] && [ "${COMMAND}" != "DELETE" ] && [ "${REC_CONT}" = "" ]
   then
     err="${err}
         record content, specify with -b
@@ -156,8 +156,6 @@ check_opts() {
     "
   fi
 
-  
-
   if [ "${err}" != "    Error: following argument(s) not passed or invalid
   "  ]
   then
@@ -175,6 +173,10 @@ usage() {
 echo "
   crud_cf_dns.sh: Create,Read,Update,Delete CloudFlare DNS record for Zone.
   
+  Commands: { run | test }
+    run         : cloudflare api call with curl
+    test        : print api call curl command 
+
   Options and arguments:
     -c,-r,-u,-d : create,read,update,delete record
     -t          : record type (A,CNAME,TXT etc.)
@@ -206,7 +208,7 @@ case "$1" in
     run=crud_dns_rec
     ;;
   *)
-    echo fail
+    usage
     exit 1
     ;;
 esac
@@ -268,12 +270,19 @@ check_opts
 
 set_auth_body
 
-if [ "${COMMAND}" != "CREATE" ]
+if [ "${COMMAND}" != "CREATE" ] && [ "${COMMAND}" != "READ" ]
 then
-  REC_ID=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
+  REC_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
-     -H "Content-Type: application/json" | jq -r .result[].id)
+     -H "Content-Type: application/json" | jq -r .result[])
+  if [ "${REC_ID}" = "" ]
+  then
+    echo "${REC_NAME} record not exist"
+    exit 1
+  else
+    REC_ID=$(echo "${REC_ID}" | jq -r .id )
+  fi
 fi
 
 ${run}
