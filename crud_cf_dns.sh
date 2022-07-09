@@ -11,41 +11,42 @@ trap 'on_failure ${LINENO}' ERR
 REC_TYPE="A"
 TTL="1"
 AUTH_TYPE="TOKEN"
+AUTH_SET="FALSE"
 PROXIED="true"
 
 CONFIG_FILE="${HOME}/.config/crud_cf_dns.vars"
 # shellcheck source=/dev/null
 [ -s "${CONFIG_FILE}" ] && source "${CONFIG_FILE}" &>/dev/null
 
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-RESET=$(tput setaf 9)
+# RED=$(tput setaf 1)
+# GREEN=$(tput setaf 2)
+# RESET=$(tput setaf 9)
 
 crud_dns_rec_test () {
   case ${COMMAND} in 
   CREATE)
     echo curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" 
-    echo -H "X-Auth-Email: ${EMAIL}" 
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json" 
     echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
      ;;
   READ)
     echo curl -X GET  "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" 
-    echo -H "X-Auth-Email: ${EMAIL}" 
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json"
     ;;
   UPDATE)
     echo curl -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
-    echo -H "X-Auth-Email: ${EMAIL}" 
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
     echo -H "${AUTH}" 
     echo -H "Content-Type: application/json" 
     echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
     ;;
   DELETE)
     echo curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
-    echo -H "X-Auth-Email: ${EMAIL}" 
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}" 
     echo -H "${AUTH}"  
     echo -H "Content-Type: application/json"
     ;;
@@ -175,13 +176,14 @@ set_defaults() {
   local zone_var
   local zone_name
   zone_name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
- 
+
   declare -n zone_var="${zone_name}"
   [ -z "${zone_name}"  ] && return
   [ -z "${CF_ZONE}"   ] && CF_ZONE="${zone_var[id]}"
   [ -z "${SECRET}"    ] && SECRET="${zone_var[secret]}"
-  [ -z "${EMAIL}"     ] && EMAIL="${zone_var[email]}"
-  [ -n "${AUTH_TYPE}" ] && AUTH_TYPE="${zone_var[auth]}"
+  [ -z "${EMAIL}"     ]  && EMAIL="${zone_var[email]}"
+  
+  [ "${AUTH_SET}" = "TRUE"  ] && AUTH_TYPE="${zone_var[auth]}" || true
 }
 
 show() {
@@ -412,10 +414,6 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
         m)
           EMAIL=${OPTARG}
           ;;
-        # f) 
-        #   CONFIGURED=true
-        #   CONFIG_FILE=${OPTARG}
-        #   ;;
         h)
           usage
           exit 0
@@ -427,7 +425,6 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
     esac
 done
 # shift "$(expr ${OPTIND} - 1)"
-
 check_opts
 
 set_auth_body
