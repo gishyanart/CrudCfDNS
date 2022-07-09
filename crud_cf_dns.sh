@@ -13,6 +13,8 @@ TTL="1"
 AUTH_TYPE="TOKEN"
 AUTH_SET="FALSE"
 PROXIED="true"
+PRETTY="true"
+FILTER=""
 
 CONFIG_FILE="${HOME}/.config/crud_cf_dns.vars"
 # shellcheck source=/dev/null
@@ -344,6 +346,9 @@ echo "${GREEN}
     -s          : api key or token value
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
+    -j          : disable pretty print
+    -f          : jq filter ( -f \"-r .result[0].content\" )
+                  note. use double quotes to avoid conflicts with script options
     -h          : Print this message
 ${RESET}
 "
@@ -376,7 +381,7 @@ case "$1" in
     ;;
 esac
 
-while getopts "crudht:n:b:l:z:ks:m:p:" option; do
+while getopts "crudhjt:n:b:l:z:ks:m:p:f:" option; do
     case "${option}" in
         c)
           COMMAND="CREATE"
@@ -421,6 +426,13 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
           usage
           exit 0
           ;;
+        j)
+          [ -n "${FILTER}" ] && echo -e "\n\t${GREEN}jq filter is specified pretty print disabling will be ignored.${RESET}\n" || PRETTY="false"
+          echo ${FILTER}
+          ;;
+        f)
+          FILTER="${OPTARG}"
+          ;;
         *)
           usage
           exit 1
@@ -447,4 +459,17 @@ then
   fi
 fi
 
-${run}
+RESPONSE=$(${run})
+
+case "${PRETTY}" in 
+  true)
+    jq ${FILTER} <<<"${RESPONSE}"
+    echo
+    ;;
+  false)
+    echo "${RESPONSE}"
+    echo
+    ;;
+  *)
+    ;;
+esac

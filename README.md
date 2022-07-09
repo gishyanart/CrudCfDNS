@@ -33,6 +33,9 @@ Manage CloudFlare DNS records for zone
     -s          : api key or token value
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
+    -j          : pretty print, default is false
+    -f          : jq filter ( -f \"-r .result[0].content\" )
+                  note. use double quotes to avoid conflicts with script options
     -h          : Print this message
 ```
 
