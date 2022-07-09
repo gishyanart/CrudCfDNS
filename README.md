@@ -1,2 +1,2 @@
 # CrudCfDNS
-Mange CloudFlare DNS records for zone
+Manage CloudFlare DNS records for zone
