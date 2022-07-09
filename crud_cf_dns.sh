@@ -322,7 +322,7 @@ echo "${GREEN}
     run         : cloudflare api call with curl
     test        : print api call curl command 
     set         : create/edit configuration file
-    delete ZONE : delete DNS zone configs
+    delete ZONE : delete DNS zone configs ( One config per execution )
     show        : show default configurations
                   default is print all configs
                   specify ZONE name to show only for that zone
