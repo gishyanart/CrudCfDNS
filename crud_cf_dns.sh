@@ -1,11 +1,25 @@
-#!/bin/bash
+#!/bin/bash 
 
-set -e
+set -o pipefail -o errtrace -o errexit
+
+on_failure() {
+  echo -e "\n\tUnxexpected error in line: $1"
+}
+
+trap 'on_failure ${LINENO}' ERR
 
 REC_TYPE="A"
 TTL="1"
 AUTH_TYPE="TOKEN"
 PROXIED="true"
+
+CONFIG_FILE="${HOME}/.config/crud_cf_dns.vars"
+# shellcheck source=/dev/null
+[ -s "${CONFIG_FILE}" ] && source "${CONFIG_FILE}" &>/dev/null
+
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+RESET=$(tput setaf 9)
 
 crud_dns_rec_test () {
   case ${COMMAND} in 
@@ -92,6 +106,126 @@ set_auth_body() {
   esac
 }
 
+configure_creds() {
+  local zone_name
+  local zone_name_conf
+  local zone_id
+  local secret
+  local email
+  local answer
+  read -r -p "    Enter the zone name ( example.com ): " zone_name
+  if ! ( grep -E '^(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}\.?$' <<<"${zone_name}" &>/dev/null ) 
+  then 
+    echo "    ${zone_name} is not a valid DNS name (e.g. example.com)"
+    exit 1
+  fi
+  
+  ( grep '\.$' <<<"${zone_name}" &> /dev/null ) && zone_name="${zone_name:0:-1}"
+  zone_name_conf=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${zone_name//./_}" )
+
+  if ( grep "${zone_name_conf}" "${CONFIG_FILE}" &>/dev/null)
+  then
+    read -r -p "    Found existing configuration. Overwrite? [y/n]: " answer
+    case "${answer,,}" in
+      y)
+        sed -i "/${zone_name}/d" "${CONFIG_FILE}" 
+        ;;
+      n)
+        exit 0
+        ;;
+      *)
+        echo -e "\n\t ${RED}Wrong input: Enter [Yy] or [Nn] ${RESET}\n"
+        exit 47
+    esac
+  fi
+  read -r -p "    Enter the zone ID (like. 12fc7ceddcf1f8d547bdf604ca69a24c): " zone_id
+  read -r -p "    What aut type use for this zone? API key/token [k/t]: " answer
+  case "${answer,,}" in
+    k)
+      read -ers -p "    Enter the API key: " secret
+      read -r -p   "    Enter the Email address: " email
+      answer="KEY"
+      echo "declare -gA ${zone_name_conf}=( [id]=${zone_id} [secret]=${secret} [email]=${email} [auth]=${answer} )" >> "${CONFIG_FILE}"
+      ;;
+    t)
+      read -r -s -p "    Enter the API token: " secret
+      echo
+      answer="TOKEN"
+      echo "declare -gA ${zone_name_conf}=( [id]=${zone_id} [secret]=${secret} [auth]=${answer} )" >> "${CONFIG_FILE}"
+      ;;
+    *)
+      echo -e "\n\t ${RED}Wrong input: Enter [Kk] or [Tt]${RESET}\n"
+      exit 47
+  esac
+  
+  exit 0
+}
+
+
+delete() {
+  local name
+  [ -z "$1" ] && { echo -e "\n\t${RED}Empty Zone name to delete\n${RESET}"; exit 1; }
+  name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
+  ( grep "${name}" "${CONFIG_FILE}" &>/dev/null ) || { echo -e "${RED}\n\t Nothing to delete\n${RESET}"; exit 1; }
+  sed -i "/${name}/d" "${CONFIG_FILE}" &>/dev/null
+  exit 1
+}
+
+set_defaults() {
+  local zone_var
+  local zone_name
+  zone_name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
+ 
+  declare -n zone_var="${zone_name}"
+  [ -z "${zone_name}"  ] && return
+  [ -z "${CF_ZONE}"   ] && CF_ZONE="${zone_var[id]}"
+  [ -z "${SECRET}"    ] && SECRET="${zone_var[secret]}"
+  [ -z "${EMAIL}"     ] && EMAIL="${zone_var[email]}"
+  [ -n "${AUTH_TYPE}" ] && AUTH_TYPE="${zone_var[auth]}"
+}
+
+show() {
+  local names
+  local email
+  local zone_name
+  local array
+  if ! [ -e "${CONFIG_FILE}" ] 
+  then
+    echo -e "${RED}\n\tMissing config file: ${CONFIG_FILE}${RESET}\n"
+    exit 1
+  elif ! [ -s "${CONFIG_FILE}" ]
+  then
+    echo -e "${RED}\n\tConfig file is empty. Nothing to show. Use set command to crate configs.${RESET}\n"
+    exit 1
+  fi
+
+  if [ -n "$1" ] && ! ( grep -E '^(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}\.?$' <<<"$1" &>/dev/null )
+  then
+    echo -e "\n\t$1 is not a valid DNS name\n"
+    exit 1
+  elif [ -z "$1" ]
+  then
+    mapfile -t names <<<"$(awk '{print $3}' "${CONFIG_FILE}" | awk -F'=' '{print $1}')"
+  else
+    ( grep '\.$' <<<"$1" &> /dev/null ) && zone_name="${zone_name:0:-1}" || zone_name="$1"
+    zone_name=$(echo "${zone_name//./_}" | awk -F'_' '{print $(NF-1)"_"$NF }' )
+    mapfile -t names <<<"$(grep "${zone_name}" "${CONFIG_FILE}" | awk '{print $3}' | awk -F'=' '{print $1}')"
+  fi
+
+  [ -z "${names[*]}" ] && { echo -e "${RED}\n\tNo configuration found.\n${RESET}"; exit 0; }
+  for name in "${names[@]}"
+  do
+    declare -n array="${name}"
+    if [ -z "${array[email]}" ]
+    then
+      echo -e "${GREEN}[${name//_/.}]\n\tid=${array[id]}\n\tsecret=${array[secret]}\n\tauth-type=${array[auth]}${RESET}"
+    else
+      echo -e "${GREEN}[${name//_/.}]\n\tid=${array[id]}\n\tsecret=${array[secret]}\n\temail=${array[email]}\n\tauth-type=${array[auth]}${RESET}"
+    fi
+  done
+  exit 0
+}
+
 check_opts() {
   err="    Error: following argument(s) not passed or invalid
   "
@@ -104,9 +238,17 @@ check_opts() {
   if [ "${REC_NAME}" = "" ]
   then
     err="${err}
-        record name, specify with -n
+        missing record name, specify with -n
     "
+  elif ! ( grep -E '^(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}\.?$' <<<"${REC_NAME}" &>/dev/null )
+  then
+    err="${err}
+        invalid record name, must be valid DNS name ( example.com, app.example.com ...)
+    "
+  else
+    set_defaults "${REC_NAME}"
   fi
+
   if [ "${COMMAND}" != "READ" ] && [ "${COMMAND}" != "DELETE" ] && [ "${REC_CONT}" = "" ]
   then
     err="${err}
@@ -167,17 +309,20 @@ check_opts() {
   fi
 }
 
-
-
 usage() {
-echo "
+echo "${GREEN}
   crud_cf_dns.sh: Create,Read,Update,Delete CloudFlare DNS record for Zone.
   
-  Commands: { run | test }
+  Commands: { run | test | set | delete ZONE | show [ZONE] }
     run         : cloudflare api call with curl
     test        : print api call curl command 
+    set         : create/edit configuration file
+    delete ZONE : delete DNS zone configs
+    show        : show default configurations
+                  default is print all configs
+                  specify Zone name to show only for that zone
 
-  Options and arguments:
+  Options and arguments for run and test commands:
     -c,-r,-u,-d : create,read,update,delete record
     -t          : record type (A,CNAME,TXT etc.)
                   default is A
@@ -195,23 +340,36 @@ echo "
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
     -h          : Print this message
+${RESET}
 "
 }
 
 case "$1" in
   test)
-    shift
     run=crud_dns_rec_test
     ;;
   run)
-    shift
     run=crud_dns_rec
     ;;
+  set)
+    configure_creds
+    ;;
+  show)
+    shift
+    show "$1"
+    ;;
+  delete)
+    shift
+    delete "$1"
+    ;;
   *)
+    echo -e "\n${RED}Wrong input${RESET}"
     usage
     exit 1
     ;;
 esac
+
+shift
 
 while getopts "crudht:n:b:l:z:ks:m:p:" option; do
     case "${option}" in
@@ -254,6 +412,10 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
         m)
           EMAIL=${OPTARG}
           ;;
+        # f) 
+        #   CONFIGURED=true
+        #   CONFIG_FILE=${OPTARG}
+        #   ;;
         h)
           usage
           exit 0
@@ -264,7 +426,7 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
           ;;
     esac
 done
-shift "$(expr ${OPTIND} - 1)"
+# shift "$(expr ${OPTIND} - 1)"
 
 check_opts
 
