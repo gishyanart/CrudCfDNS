@@ -18,9 +18,9 @@ CONFIG_FILE="${HOME}/.config/crud_cf_dns.vars"
 # shellcheck source=/dev/null
 [ -s "${CONFIG_FILE}" ] && source "${CONFIG_FILE}" &>/dev/null
 
-# RED=$(tput setaf 1)
-# GREEN=$(tput setaf 2)
-# RESET=$(tput setaf 9)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+RESET=$(tput setaf 9)
 
 crud_dns_rec_test () {
   case ${COMMAND} in 
