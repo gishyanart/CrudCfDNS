@@ -178,12 +178,15 @@ set_defaults() {
   zone_name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
 
   declare -n zone_var="${zone_name}"
-  [ -z "${zone_name}"  ] && return
-  [ -z "${CF_ZONE}"   ] && CF_ZONE="${zone_var[id]}"
-  [ -z "${SECRET}"    ] && SECRET="${zone_var[secret]}"
+  [ -z "${zone_name}" ]  && return
+  [ -z "${CF_ZONE}"   ]  && CF_ZONE="${zone_var[id]}"
+  [ -z "${SECRET}"    ]  && SECRET="${zone_var[secret]}"
   [ -z "${EMAIL}"     ]  && EMAIL="${zone_var[email]}"
   
-  [ "${AUTH_SET}" = "TRUE"  ] && AUTH_TYPE="${zone_var[auth]}" || true
+  if [ "${AUTH_SET}" = "TRUE" ] || [ "${zone_var[auth]}" = "KEY" ]
+  then  
+    AUTH_TYPE="${zone_var[auth]}"
+  fi
 }
 
 show() {
@@ -322,7 +325,7 @@ echo "${GREEN}
     delete ZONE : delete DNS zone configs
     show        : show default configurations
                   default is print all configs
-                  specify Zone name to show only for that zone
+                  specify ZONE name to show only for that zone
 
   Options and arguments for run and test commands:
     -c,-r,-u,-d : create,read,update,delete record
@@ -348,9 +351,11 @@ ${RESET}
 
 case "$1" in
   test)
+    shift
     run=crud_dns_rec_test
     ;;
   run)
+    shift
     run=crud_dns_rec
     ;;
   set)
@@ -370,8 +375,6 @@ case "$1" in
     exit 1
     ;;
 esac
-
-shift
 
 while getopts "crudht:n:b:l:z:ks:m:p:" option; do
     case "${option}" in
@@ -424,9 +427,9 @@ while getopts "crudht:n:b:l:z:ks:m:p:" option; do
           ;;
     esac
 done
-# shift "$(expr ${OPTIND} - 1)"
-check_opts
+shift $((OPTIND-1))
 
+check_opts
 set_auth_body
 
 if [ "${COMMAND}" != "CREATE" ] && [ "${COMMAND}" != "READ" ]
