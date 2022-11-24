@@ -19,10 +19,10 @@ jobs:
 
       - name: Extract branch name
         shell: bash
-        run: echo "{branch}={testtesttest}" >> $GITHUB_OUTPUT
+        run: echo "{branch}=testtest" >> $GITHUB_OUTPUT
         id: step1
 
       - name: Print extract
         shell: bash
-        run: echo test
+        run: echo ${{ steps.step1.outputs.branch }}
           
