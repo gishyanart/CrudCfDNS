@@ -1,0 +1,28 @@
+name: Test
+
+permissions:
+  id-token: write
+  contents: write
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "{branch}={${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Print extract
+        shell: bash
+        run: echo ${{ steps.extract_branch.outputs.branch }}
+          
