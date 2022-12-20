@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 set -o pipefail -o errtrace -o errexit
 
@@ -142,7 +142,7 @@ configure_creds() {
     esac
   fi
   read -r -p "    Enter the zone ID (like. 12fc7ceddcf1f8d547bdf604ca69a24c): " zone_id
-  read -r -p "    What aut type use for this zone? API key/token [k/t]: " answer
+  read -r -p "    What auth type use for this zone? API key/token [k/t]: " answer
   case "${answer,,}" in
     k)
       read -ers -p "    Enter the API key: " secret
@@ -346,7 +346,7 @@ echo "${GREEN}
     -s          : api key or token value
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
-    -j          : disable pretty print ( enabled by default )
+    -j          : disable pretty print
     -f          : jq filter ( -f \"-r .result[0].content\" )
                   note. use double quotes to avoid conflicts with script options
     -h          : Print this message
@@ -373,6 +373,11 @@ case "$1" in
   delete)
     shift
     delete "$1"
+    ;;
+  '-h')
+    shift
+    usage
+    exit
     ;;
   *)
     echo -e "\n${RED}Wrong input${RESET}"
@@ -460,16 +465,19 @@ then
 fi
 
 RESPONSE=$(${run})
-
-case "${PRETTY}" in 
-  true)
-    jq ${FILTER} <<<"${RESPONSE}"
-    echo
-    ;;
-  false)
-    echo "${RESPONSE}"
-    echo
-    ;;
-  *)
-    ;;
-esac
+if [ "${run}" = "crud_dns_rec" ]
+then
+  case "${PRETTY}" in 
+    true)
+      echo "${RESPONSE}" | jq
+      ;;
+    false)
+      echo "${RESPONSE}"
+      echo
+      ;;
+    *)
+      ;;
+  esac
+else
+  echo "${RESPONSE}"
+fi
