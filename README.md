@@ -28,14 +28,17 @@ Manage CloudFlare DNS records for zone
     -p          : set proxy status true or false
                   default value is true
     -z          : DNS zone ID
+    -i          : CLoudFlare record comment
     -k          : set authorization type to api key
                   default is token
     -s          : api key or token value
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
-    -j          : disable pretty print ( enabled by default )
-    -f          : jq filter ( -f \"-r .result[0].content\" )
+    -j          : disable pretty print
+    -f          : yq filter (ex. -f "-r .result[0].content" )
                   note. use double quotes to avoid conflicts with script options
+    -o          : Output format (default is json). Valid values are: y/yaml or j/json.
+                  All other values will be ignored.
     -h          : Print this message
 ```
 
