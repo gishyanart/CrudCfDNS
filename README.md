@@ -6,10 +6,10 @@ Manage CloudFlare DNS records for zone
 
 ```text
   crud_cf_dns.sh: Create,Read,Update,Delete CloudFlare DNS record for Zone.
-  
+
   Commands: { run | test | set | delete ZONE | show [ZONE] }
     run         : cloudflare api call with curl
-    test        : print api call curl command 
+    test        : print api call curl command
     set         : create/edit configuration file
     delete ZONE : delete DNS zone configs ( One config per execution )
     show        : show default configurations
@@ -41,9 +41,7 @@ Manage CloudFlare DNS records for zone
 
 ## Dependencies
 
-- [tput](https://www.gnu.org/software/termutils/manual/termutils-2.0/html_chapter/tput_1.html#SEC1)
-
-- [jq](https://stedolan.github.io/jq/)
+- [yq](https://github.com/mikefarah/yq)
 
 - [curl](https://curl.se/)
 

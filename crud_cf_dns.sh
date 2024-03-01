@@ -15,41 +15,44 @@ AUTH_SET="FALSE"
 PROXIED="true"
 PRETTY="true"
 FILTER=""
+COMMENT=""
+OUTPUT_FORMAT="j"
 
 CONFIG_FILE="${HOME}/.config/crud_cf_dns.vars"
 # shellcheck source=/dev/null
 [ -s "${CONFIG_FILE}" ] && source "${CONFIG_FILE}" &>/dev/null
 
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-RESET=$(tput setaf 9)
+RED="\033[31m"
+GREEN="\033[32m"
+BLUE="\033[34m"
+RESET="\033[00m"
 
 crud_dns_rec_test () {
-  case ${COMMAND} in 
+  case ${COMMAND} in
   CREATE)
-    echo curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" 
-    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}" 
-    echo -H "${AUTH}" 
-    echo -H "Content-Type: application/json" 
-    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
+    echo curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records"
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
+    echo -H "${AUTH}"
+    echo -H "Content-Type: application/json"
+    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}, \"comment\": \"${COMMENT}\"}"
      ;;
   READ)
-    echo curl -X GET  "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" 
+    echo curl -X GET  "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}"
     [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
-    echo -H "${AUTH}" 
+    echo -H "${AUTH}"
     echo -H "Content-Type: application/json"
     ;;
   UPDATE)
-    echo curl -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
+    echo curl -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}"
     [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
-    echo -H "${AUTH}" 
-    echo -H "Content-Type: application/json" 
-    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
+    echo -H "${AUTH}"
+    echo -H "Content-Type: application/json"
+    echo --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}, \"comment\": \"${COMMENT}\"}"
     ;;
   DELETE)
-    echo curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" 
-    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}" 
-    echo -H "${AUTH}"  
+    echo curl -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}"
+    [ "${AUTH_TYPE}" = "KEY" ] && echo -H "X-Auth-Email: ${EMAIL}"
+    echo -H "${AUTH}"
     echo -H "Content-Type: application/json"
     ;;
   *)
@@ -60,13 +63,13 @@ crud_dns_rec_test () {
 }
 
 crud_dns_rec() {
-  case ${COMMAND} in 
+  case ${COMMAND} in
   CREATE)
     curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
-     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}}"
+     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"priority\":10,\"proxied\":${PROXIED}, \"comment\": \"${COMMENT}\"}"
      ;;
   READ)
     curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
@@ -79,7 +82,7 @@ crud_dns_rec() {
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
      -H "Content-Type: application/json" \
-     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
+     --data "{\"type\":\"${REC_TYPE}\",\"name\":\"${REC_NAME}\",\"content\":\"${REC_CONT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}, \"comment\": \"${COMMENT}\"}"
     ;;
   DELETE)
     curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records/${REC_ID}" \
@@ -117,12 +120,12 @@ configure_creds() {
   local email
   local answer
   read -r -p "    Enter the zone name ( example.com ): " zone_name
-  if ! ( grep -E '^(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}\.?$' <<<"${zone_name}" &>/dev/null ) 
-  then 
+  if ! ( grep -E '^(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}\.?$' <<<"${zone_name}" &>/dev/null )
+  then
     echo "    ${zone_name} is not a valid DNS name (e.g. example.com)"
     exit 1
   fi
-  
+
   ( grep '\.$' <<<"${zone_name}" &> /dev/null ) && zone_name="${zone_name:0:-1}"
   zone_name_conf=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${zone_name//./_}" )
 
@@ -131,7 +134,7 @@ configure_creds() {
     read -r -p "    Found existing configuration. Overwrite? [y/n]: " answer
     case "${answer,,}" in
       y)
-        sed -i "/${zone_name}/d" "${CONFIG_FILE}" 
+        sed -i "/${zone_name}/d" "${CONFIG_FILE}"
         ;;
       n)
         exit 0
@@ -160,13 +163,14 @@ configure_creds() {
       echo -e "\n\t ${RED}Wrong input: Enter [Kk] or [Tt]${RESET}\n"
       exit 47
   esac
-  
+
   exit 0
 }
 
 
 delete() {
   local name
+  local exist
   [ -z "$1" ] && { echo -e "\n\t${RED}Empty Zone name to delete\n${RESET}"; exit 1; }
   name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
   ( grep "${name}" "${CONFIG_FILE}" &>/dev/null ) || { echo -e "${RED}\n\t Nothing to delete\n${RESET}"; exit 1; }
@@ -177,16 +181,17 @@ delete() {
 set_defaults() {
   local zone_var
   local zone_name
-  zone_name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${1//./_}" )
-
+  local normalized
+  ( grep "\.$" <<< "$1" ) && normalized="${1:0:-1}" || normalized=$1
+  zone_name=$(awk -F'_' '{print $(NF-1)"_"$NF }' <<<"${normalized//./_}" )
   declare -n zone_var="${zone_name}"
   [ -z "${zone_name}" ]  && return
   [ -z "${CF_ZONE}"   ]  && CF_ZONE="${zone_var[id]}"
   [ -z "${SECRET}"    ]  && SECRET="${zone_var[secret]}"
   [ -z "${EMAIL}"     ]  && EMAIL="${zone_var[email]}"
-  
+
   if [ "${AUTH_SET}" = "TRUE" ] || [ "${zone_var[auth]}" = "KEY" ]
-  then  
+  then
     AUTH_TYPE="${zone_var[auth]}"
   fi
 }
@@ -196,7 +201,7 @@ show() {
   local email
   local zone_name
   local array
-  if ! [ -e "${CONFIG_FILE}" ] 
+  if ! [ -e "${CONFIG_FILE}" ]
   then
     echo -e "${RED}\n\tMissing config file: ${CONFIG_FILE}${RESET}\n"
     exit 1
@@ -213,12 +218,29 @@ show() {
   elif [ -z "$1" ]
   then
     mapfile -t names <<<"$(awk '{print $3}' "${CONFIG_FILE}" | awk -F'=' '{print $1}')"
+    exist=1
   else
     ( grep '\.$' <<<"$1" &> /dev/null ) && zone_name="${zone_name:0:-1}" || zone_name="$1"
     zone_name=$(echo "${zone_name//./_}" | awk -F'_' '{print $(NF-1)"_"$NF }' )
     mapfile -t names <<<"$(grep "${zone_name}" "${CONFIG_FILE}" | awk '{print $3}' | awk -F'=' '{print $1}')"
   fi
 
+  if [ ! "$exist" ]
+  then
+    for i in "${names[@]}"
+    do
+      if [ "$i" = "$zone_name" ]
+      then
+        exist=1
+        break
+      fi
+    done
+  fi
+  if ! [ "$exist" ]
+  then
+    echo -e "\n\t${RED}Config for \`${1}\` does not exist${RESET}\n"
+    exit 1
+  fi
   [ -z "${names[*]}" ] && { echo -e "${RED}\n\tNo configuration found.\n${RESET}"; exit 0; }
   for name in "${names[@]}"
   do
@@ -317,12 +339,12 @@ check_opts() {
 }
 
 usage() {
-echo "${GREEN}
+echo "
   crud_cf_dns.sh: Create,Read,Update,Delete CloudFlare DNS record for Zone.
-  
+
   Commands: { run | test | set | delete ZONE | show [ZONE] }
     run         : cloudflare api call with curl
-    test        : print api call curl command 
+    test        : print api call curl command
     set         : create/edit configuration file
     delete ZONE : delete DNS zone configs ( One config per execution )
     show        : show default configurations
@@ -341,16 +363,18 @@ echo "${GREEN}
     -p          : set proxy status true or false
                   default value is true
     -z          : DNS zone ID
+    -i          : CLoudFlare record comment
     -k          : set authorization type to api key
                   default is token
     -s          : api key or token value
     -m          : X-Auth-Email (ex. user@example.com)
                   must be passed with api key authorization
     -j          : disable pretty print
-    -f          : jq filter ( -f \"-r .result[0].content\" )
+    -f          : yq filter (ex. -f "-r .result[0].content" )
                   note. use double quotes to avoid conflicts with script options
+    -o          : Output format (default is json). Valid values are: y/yaml or j/json.
+                  All other values will be ignored.
     -h          : Print this message
-${RESET}
 "
 }
 
@@ -386,12 +410,12 @@ case "$1" in
     ;;
 esac
 
-while getopts "crudhjt:n:b:l:z:ks:m:p:f:" option; do
+while getopts "crudhjt:n:b:l:z:ks:m:p:f:i:o:" option; do
     case "${option}" in
         c)
           COMMAND="CREATE"
           ;;
-        r) 
+        r)
           COMMAND="READ"
           ;;
         u)
@@ -405,6 +429,7 @@ while getopts "crudhjt:n:b:l:z:ks:m:p:f:" option; do
           ;;
         n)
           REC_NAME=${OPTARG};
+          ( grep "\.$" <<< "$REC_NAME" ) && REC_NAME="${REC_NAME:0:-1}"
           ;;
         b)
           REC_CONT=${OPTARG};
@@ -427,13 +452,35 @@ while getopts "crudhjt:n:b:l:z:ks:m:p:f:" option; do
         m)
           EMAIL=${OPTARG}
           ;;
+        i)
+          COMMENT=${OPTARG}
+          ;;
+        o)
+          case "${OPTARG}" in
+            y)
+              OUTPUT_FORMAT=y
+            ;;
+            yaml)
+              OUTPUT_FORMAT=y
+            ;;
+            j)
+              OUTPUT_FORMAT=j
+            ;;
+            json)
+              OUTPUT_FORMAT=j
+            ;;
+            *)
+              OUTPUT_FORMAT=j
+            ;;
+          esac
+          ;;
         h)
           usage
           exit 0
           ;;
         j)
-          [ -n "${FILTER}" ] && echo -e "\n\t${GREEN}jq filter is specified pretty print disabling will be ignored.${RESET}\n" || PRETTY="false"
-          echo ${FILTER}
+          [ -n "${FILTER}" ] && echo -e "\n\t${GREEN}yq filter is specified pretty print disabling will be ignored.${RESET}\n" || PRETTY="false"
+          echo "${FILTER}"
           ;;
         f)
           FILTER="${OPTARG}"
@@ -451,25 +498,42 @@ set_auth_body
 
 if [ "${COMMAND}" != "CREATE" ] && [ "${COMMAND}" != "READ" ]
 then
-  REC_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
+  RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/dns_records?name=${REC_NAME}" \
      -H "X-Auth-Email: ${EMAIL}" \
      -H "${AUTH}" \
-     -H "Content-Type: application/json" | jq -r .result[])
-  if [ "${REC_ID}" = "" ]
+     -H "Content-Type: application/json")
+  _success="$(yq -roj .success <<< "$RESPONSE")"
+  if [ "${_success}" != "true" ]
   then
-    echo "${REC_NAME} record not exist"
+    echo -e "${RED} Failed to get record ids for ${YELLOW}${REC_NAME}${RESET}"
     exit 1
-  else
-    REC_ID=$(echo "${REC_ID}" | jq -r .id )
   fi
+  length="$(yq '.result | length' <<< "$RESPONSE")"
+  if [ "$length" -gt 1 ]
+  then
+    mapfile -t _contents <<< "$(yq -roy '.result[] | .content' <<< "$RESPONSE")"
+    echo -e "\n${BLUE}Found more than 1 record for ${GREEN}${REC_NAME}:${RESET}"
+    yq -roy '.result[] | [{"id": .id, "value": .content, "type": .type}]' <<< "$RESPONSE"
+    PS3="Select the record: "
+    select _content in "${_contents[@]}"
+    do
+      break
+    done
+  fi
+  REC_ID=$(CONTENT="${_content}" yq -roy '.result[] | select(.content == env(CONTENT)) | .id' <<< "$RESPONSE")
 fi
 
 RESPONSE=$(${run})
 if [ "${run}" = "crud_dns_rec" ]
 then
-  case "${PRETTY}" in 
+  case "${PRETTY}" in
     true)
-      echo "${RESPONSE}" | jq
+      if [ "$FILTER" ]
+      then
+        echo "${RESPONSE}" | yq "$FILTER" -Po${OUTPUT_FORMAT}
+      else
+        echo "${RESPONSE}" | yq -Po${OUTPUT_FORMAT}
+      fi
       ;;
     false)
       echo "${RESPONSE}"

@@ -1,8 +1,8 @@
-FROM curlimages/curl
+FROM curlimages/curl:8.6.0
 
 USER root
 
-RUN apk add jq bash
+RUN apk add yq bash
 
 COPY crud_cf_dns.sh /bin/
 
